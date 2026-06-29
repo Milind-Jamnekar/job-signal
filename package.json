@@ -20,11 +20,22 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@bull-board/api": "^8.0.1",
+    "@bull-board/express": "^8.0.1",
+    "@bull-board/nestjs": "^8.0.1",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/typeorm": "^11.0.3",
+    "bullmq": "^5.79.2",
+    "ioredis": "^5.11.1",
+    "nestjs-pino": "^4.6.1",
+    "pg": "^8.22.0",
+    "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.30"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
