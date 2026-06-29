@@ -7,6 +7,7 @@ import { Redis } from 'ioredis';
 import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import { FreshnessScorer } from './freshness-scorer';
 import { RemoteOkSource } from './sources/remote-ok.source';
 
@@ -23,7 +24,7 @@ export class ScraperWorker extends WorkerHost {
     private readonly scorer: FreshnessScorer,
     private readonly remoteOkSource: RemoteOkSource,
     @InjectDataSource() private readonly dataSource: DataSource,
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     super();
   }
@@ -110,6 +111,10 @@ export class ScraperWorker extends WorkerHost {
       }
 
       accepted++;
+    }
+
+    if (accepted > 0) {
+      await this.redis.publish('INVALIDATE_JOBS_CACHE', '1');
     }
 
     this.logger.log(

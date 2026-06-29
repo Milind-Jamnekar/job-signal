@@ -13,6 +13,7 @@ import { Job } from './entities/job.entity';
 import { SavedSearch } from './entities/saved-search.entity';
 import { User } from './entities/user.entity';
 import { JobsModule } from './jobs/jobs.module';
+import { RedisModule } from './redis/redis.module';
 import { ScrapingModule } from './scraping/scraping.module';
 
 @Module({
@@ -53,6 +54,7 @@ import { ScrapingModule } from './scraping/scraping.module';
         }),
       }),
     }),
+    RedisModule,
     JobsModule,
     ScrapingModule,
   ],
