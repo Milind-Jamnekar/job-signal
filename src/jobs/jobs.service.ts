@@ -6,7 +6,9 @@ import { ListJobsDto } from './dto/list-jobs.dto';
 
 @Injectable()
 export class JobsService {
-  constructor(@InjectRepository(Job) private readonly jobRepo: Repository<Job>) {}
+  constructor(
+    @InjectRepository(Job) private readonly jobRepo: Repository<Job>,
+  ) {}
 
   async findAll(dto: ListJobsDto): Promise<{ data: Job[]; total: number }> {
     const { page, limit } = dto;
