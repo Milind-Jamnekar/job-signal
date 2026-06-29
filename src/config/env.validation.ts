@@ -8,4 +8,6 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
     .default('development'),
+  BULL_BOARD_USER: Joi.string().default('admin'),
+  BULL_BOARD_PASS: Joi.string().default('admin'),
 });

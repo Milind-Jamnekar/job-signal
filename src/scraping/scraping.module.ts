@@ -2,6 +2,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import IORedis from 'ioredis';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
@@ -14,6 +16,10 @@ import { RemoteOkSource } from './sources/remote-ok.source';
   imports: [
     BullModule.registerQueue({ name: 'scrape' }),
     BullModule.registerQueue({ name: 'scrape-dlq' }),
+    BullBoardModule.forFeature(
+      { name: 'scrape', adapter: BullMQAdapter },
+      { name: 'scrape-dlq', adapter: BullMQAdapter },
+    ),
     TypeOrmModule.forFeature([Job, Company]),
   ],
   providers: [
