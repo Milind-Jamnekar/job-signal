@@ -12,24 +12,24 @@ import { User } from './user.entity';
 @Index('idx_saved_searches_user_id', ['userId'])
 export class SavedSearch {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'user_id' })
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => User, (user) => user.savedSearches, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ type: 'text', array: true, nullable: true })
-  keywords: string[] | null;
+  keywords!: string[] | null;
 
   @Column({ name: 'min_salary', nullable: true, type: 'int' })
-  minSalary: number | null;
+  minSalary!: number | null;
 
   @Column({ name: 'min_freshness_score', type: 'int', default: 60 })
-  minFreshnessScore: number;
+  minFreshnessScore!: number;
 
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'NOW()' })
-  createdAt: Date;
+  createdAt!: Date;
 }

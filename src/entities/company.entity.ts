@@ -4,20 +4,20 @@ import { Job } from './job.entity';
 @Entity('companies')
 export class Company {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  name: string;
+  name!: string;
 
   @Column({ name: 'salary_p50', nullable: true, type: 'int' })
-  salaryP50: number | null;
+  salaryP50!: number | null;
 
   @Column({ nullable: true, type: 'int' })
-  headcount: number | null;
+  headcount!: number | null;
 
   @Column({ name: 'last_enriched_at', nullable: true, type: 'timestamptz' })
-  lastEnrichedAt: Date | null;
+  lastEnrichedAt!: Date | null;
 
   @OneToMany(() => Job, (job) => job.company)
-  jobs: Job[];
+  jobs!: Job[];
 }
