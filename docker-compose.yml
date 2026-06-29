@@ -27,6 +27,8 @@ services:
     environment:
       DATABASE_URL: postgres://jobsignal:jobsignal@postgres:5432/jobsignal
       REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       postgres:
         condition: service_healthy
