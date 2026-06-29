@@ -1,7 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
+import { envValidationSchema } from './config/env.validation';
 import { AppService } from './app.service';
 import { Company } from './entities/company.entity';
 import { Job } from './entities/job.entity';
@@ -11,17 +13,27 @@ import { ScrapingModule } from './scraping/scraping.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      entities: [Company, Job, User, SavedSearch],
-      synchronize: true,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
     }),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: Number(process.env.REDIS_PORT ?? '6379'),
-      },
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.get<string>('DATABASE_URL'),
+        entities: [Company, Job, User, SavedSearch],
+        synchronize: true,
+      }),
+    }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('REDIS_HOST'),
+          port: config.get<number>('REDIS_PORT'),
+        },
+      }),
     }),
     ScrapingModule,
   ],

@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import IORedis from 'ioredis';
 import { Company } from '../entities/company.entity';
@@ -22,8 +23,9 @@ import { RemoteOkSource } from './sources/remote-ok.source';
     ScrapingService,
     {
       provide: 'REDIS_CLIENT',
-      useFactory: () =>
-        new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379'),
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new IORedis(config.get<string>('REDIS_URL') ?? 'redis://localhost:6379'),
     },
   ],
 })
