@@ -63,7 +63,12 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     });
     const result = { data, total };
 
-    await this.redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      CACHE_TTL_SECONDS,
+    );
     return result;
   }
 
