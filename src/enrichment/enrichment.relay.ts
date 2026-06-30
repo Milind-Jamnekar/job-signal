@@ -6,7 +6,6 @@ import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
 import { JobOutbox } from '../entities/job-outbox.entity';
-import { FreshnessScorer } from '../scraping/freshness-scorer';
 import { LevelsFyiSource } from './levels-fyi.source';
 
 @Processor('enrich')
@@ -16,7 +15,6 @@ export class EnrichmentRelay extends WorkerHost {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly levelsFyi: LevelsFyiSource,
-    private readonly scorer: FreshnessScorer,
   ) {
     super();
   }

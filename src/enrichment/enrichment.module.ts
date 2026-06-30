@@ -6,7 +6,6 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
 import { JobOutbox } from '../entities/job-outbox.entity';
-import { FreshnessScorer } from '../scraping/freshness-scorer';
 import { EnrichmentRelay } from './enrichment.relay';
 import { EnrichmentService } from './enrichment.service';
 import { LevelsFyiSource } from './levels-fyi.source';
@@ -17,11 +16,6 @@ import { LevelsFyiSource } from './levels-fyi.source';
     BullBoardModule.forFeature({ name: 'enrich', adapter: BullMQAdapter }),
     TypeOrmModule.forFeature([Job, Company, JobOutbox]),
   ],
-  providers: [
-    LevelsFyiSource,
-    FreshnessScorer,
-    EnrichmentRelay,
-    EnrichmentService,
-  ],
+  providers: [LevelsFyiSource, EnrichmentRelay, EnrichmentService],
 })
 export class EnrichmentModule {}
