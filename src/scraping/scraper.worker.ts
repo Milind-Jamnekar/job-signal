@@ -7,6 +7,7 @@ import { Redis } from 'ioredis';
 import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
+import { JobOutbox } from '../entities/job-outbox.entity';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { FreshnessScorer } from './freshness-scorer';
 import { RemoteOkSource } from './sources/remote-ok.source';
@@ -72,40 +73,62 @@ export class ScraperWorker extends WorkerHost {
         continue;
       }
 
-      // Find-or-create company
-      const companyRepo = this.dataSource.getRepository(Company);
-      await companyRepo
-        .createQueryBuilder()
-        .insert()
-        .into(Company)
-        .values({ name: listing.companyName })
-        .orIgnore()
-        .execute();
+      // Upsert job + insert outbox row in a single transaction
+      await this.dataSource.transaction(async (em) => {
+        // Find-or-create company
+        await em
+          .createQueryBuilder()
+          .insert()
+          .into(Company)
+          .values({ name: listing.companyName })
+          .orIgnore()
+          .execute();
 
-      const company = await companyRepo.findOneBy({
-        name: listing.companyName,
+        const company = await em.findOneBy(Company, {
+          name: listing.companyName,
+        });
+
+        const result = await em
+          .createQueryBuilder()
+          .insert()
+          .into(Job)
+          .values({
+            title: listing.title,
+            companyId: company?.id ?? null,
+            url: listing.url,
+            urlHash: sha256(listing.url),
+            source: source.sourceName,
+            salaryMin: listing.salaryMin ?? null,
+            salaryMax: listing.salaryMax ?? null,
+            currency: listing.currency ?? 'USD',
+            description: listing.description ?? null,
+            postedAt: listing.postedAt,
+            freshnessScore: score,
+          })
+          .orUpdate(
+            [
+              'title',
+              'company_id',
+              'salary_min',
+              'salary_max',
+              'description',
+              'posted_at',
+              'freshness_score',
+            ],
+            ['url_hash'],
+          )
+          .returning('id')
+          .execute();
+
+        const jobId = result.raw[0]?.id as string;
+        await em.insert(JobOutbox, {
+          jobId,
+          eventType: 'enrich_company',
+          payload: { companyName: listing.companyName },
+        });
       });
 
-      // Upsert job (conflict on url_hash)
-      const jobRepo = this.dataSource.getRepository(Job);
-      await jobRepo.upsert(
-        {
-          title: listing.title,
-          companyId: company?.id ?? null,
-          url: listing.url,
-          urlHash: sha256(listing.url),
-          source: source.sourceName,
-          salaryMin: listing.salaryMin ?? null,
-          salaryMax: listing.salaryMax ?? null,
-          currency: listing.currency ?? 'USD',
-          description: listing.description ?? null,
-          postedAt: listing.postedAt,
-          freshnessScore: score,
-        },
-        { conflictPaths: ['urlHash'] },
-      );
-
-      // Write repost key only after successful upsert
+      // Write repost key only after successful transaction
       if (!isRepost) {
         await this.redis.set(repostKey, '1', 'EX', 60 * 60 * 24 * 60); // 60 days
       }

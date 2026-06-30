@@ -1,15 +1,16 @@
+import { ExpressAdapter } from '@bull-board/express';
+import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullBoardModule } from '@bull-board/nestjs';
-import { ExpressAdapter } from '@bull-board/express';
 import basicAuth from 'express-basic-auth';
 import { AppController } from './app.controller';
-import { envValidationSchema } from './config/env.validation';
 import { AppService } from './app.service';
+import { envValidationSchema } from './config/env.validation';
 import { Company } from './entities/company.entity';
 import { Job } from './entities/job.entity';
+import { JobOutbox } from './entities/job-outbox.entity';
 import { SavedSearch } from './entities/saved-search.entity';
 import { User } from './entities/user.entity';
 import { JobsModule } from './jobs/jobs.module';
@@ -27,7 +28,7 @@ import { ScrapingModule } from './scraping/scraping.module';
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
         url: config.get<string>('DATABASE_URL'),
-        entities: [Company, Job, User, SavedSearch],
+        entities: [Company, Job, JobOutbox, User, SavedSearch],
         synchronize: true,
       }),
     }),
