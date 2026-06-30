@@ -10,4 +10,7 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   BULL_BOARD_USER: Joi.string().default('admin'),
   BULL_BOARD_PASS: Joi.string().default('admin'),
+  JWT_SECRET: Joi.string().required(),
+  TELEGRAM_BOT_TOKEN: Joi.string().optional(),
+  TELEGRAM_CHAT_ID: Joi.string().optional(),
 });

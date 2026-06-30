@@ -14,9 +14,12 @@ import { Job } from './entities/job.entity';
 import { JobOutbox } from './entities/job-outbox.entity';
 import { SavedSearch } from './entities/saved-search.entity';
 import { User } from './entities/user.entity';
+import { AuthModule } from './auth/auth.module';
 import { EnrichmentModule } from './enrichment/enrichment.module';
 import { JobsModule } from './jobs/jobs.module';
+import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
+import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { ScrapingModule } from './scraping/scraping.module';
 
 @Module({
@@ -67,9 +70,12 @@ import { ScrapingModule } from './scraping/scraping.module';
       }),
     }),
     RedisModule,
+    AuthModule,
     JobsModule,
+    SavedSearchesModule,
     ScrapingModule,
     EnrichmentModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
