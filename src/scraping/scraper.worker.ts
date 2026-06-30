@@ -1,16 +1,17 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Job as BullJob, Queue } from 'bullmq';
 import { createHash } from 'crypto';
 import { Redis } from 'ioredis';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
 import { JobOutbox } from '../entities/job-outbox.entity';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { FreshnessScorer } from './freshness-scorer';
-import { RemoteOkSource } from './sources/remote-ok.source';
+import { JobSource } from './job-source.interface';
 
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
@@ -18,12 +19,11 @@ function sha256(input: string): string {
 
 @Processor('scrape')
 export class ScraperWorker extends WorkerHost {
-  private readonly logger = new Logger(ScraperWorker.name);
-
   constructor(
+    @InjectPinoLogger(ScraperWorker.name) private readonly logger: PinoLogger,
     @InjectQueue('scrape-dlq') private readonly dlqQueue: Queue,
     private readonly scorer: FreshnessScorer,
-    private readonly remoteOkSource: RemoteOkSource,
+    @Inject('JOB_SOURCES') private readonly sources: JobSource[],
     @InjectDataSource() private readonly dataSource: DataSource,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
@@ -32,11 +32,20 @@ export class ScraperWorker extends WorkerHost {
 
   async process(job: BullJob): Promise<void> {
     const scrapeJobId = job.id;
-    const source = this.remoteOkSource;
+    for (const source of this.sources) {
+      await this.scrapeSource(source, scrapeJobId);
+    }
+  }
 
-    this.logger.log(
-      `Starting scrape [${source.sourceName}] job=${scrapeJobId}`,
-    );
+  private async scrapeSource(
+    source: JobSource,
+    scrapeJobId: string | undefined,
+  ): Promise<void> {
+    this.logger.assign({
+      scrape_job_id: scrapeJobId,
+      source: source.sourceName,
+    });
+    this.logger.info('Starting scrape');
 
     // fetchListings() errors propagate — BullMQ retry + DLQ handle them
     const listings = await source.fetchListings();
@@ -57,7 +66,11 @@ export class ScraperWorker extends WorkerHost {
         isRepost = (await this.redis.exists(repostKey)) === 1;
       } catch (err: unknown) {
         // Redis unavailable — optimistic fallback: assume first-seen
-        this.logger.warn({ event: 'redis_unavailable', scrapeJobId, err });
+        this.logger.warn({
+          event: 'redis_unavailable',
+          scrape_job_id: scrapeJobId,
+          err,
+        });
         isRepost = false;
       }
 
@@ -130,7 +143,7 @@ export class ScraperWorker extends WorkerHost {
 
       // Write repost key only after successful transaction
       if (!isRepost) {
-        await this.redis.set(repostKey, '1', 'EX', 60 * 60 * 24 * 60); // 60 days
+        await this.redis.set(repostKey, '1', 'EX', 60 * 60 * 24 * 60, 'NX'); // 60 days, only if absent
       }
 
       accepted++;
@@ -140,8 +153,6 @@ export class ScraperWorker extends WorkerHost {
       await this.redis.publish('INVALIDATE_JOBS_CACHE', '1');
     }
 
-    this.logger.log(
-      `Scrape done [${source.sourceName}] accepted=${accepted} rejected=${rejected}`,
-    );
+    this.logger.info({ accepted, rejected }, 'Scrape done');
   }
 }

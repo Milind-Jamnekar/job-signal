@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { LoggerModule } from 'nestjs-pino';
 import basicAuth from 'express-basic-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -23,6 +24,15 @@ import { ScrapingModule } from './scraping/scraping.module';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: envValidationSchema,
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty' }
+            : undefined,
+      },
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -45,7 +55,7 @@ import { ScrapingModule } from './scraping/scraping.module';
     BullBoardModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        route: '/queues',
+        route: '/admin/queues',
         adapter: ExpressAdapter,
         middleware: basicAuth({
           users: {

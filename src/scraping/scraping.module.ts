@@ -9,6 +9,8 @@ import { FreshnessScorer } from './freshness-scorer';
 import { ScraperWorker } from './scraper.worker';
 import { ScrapingService } from './scraping.service';
 import { RemoteOkSource } from './sources/remote-ok.source';
+import { RemotiveSource } from './sources/remotive.source';
+import { WeWorkRemotelySource } from './sources/we-work-remotely.source';
 
 @Module({
   imports: [
@@ -20,6 +22,22 @@ import { RemoteOkSource } from './sources/remote-ok.source';
     ),
     TypeOrmModule.forFeature([Job, Company]),
   ],
-  providers: [FreshnessScorer, RemoteOkSource, ScraperWorker, ScrapingService],
+  providers: [
+    FreshnessScorer,
+    RemoteOkSource,
+    RemotiveSource,
+    WeWorkRemotelySource,
+    {
+      provide: 'JOB_SOURCES',
+      useFactory: (
+        remoteOk: RemoteOkSource,
+        remotive: RemotiveSource,
+        wwr: WeWorkRemotelySource,
+      ) => [remoteOk, remotive, wwr],
+      inject: [RemoteOkSource, RemotiveSource, WeWorkRemotelySource],
+    },
+    ScraperWorker,
+    ScrapingService,
+  ],
 })
 export class ScrapingModule {}

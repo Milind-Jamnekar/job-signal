@@ -27,7 +27,7 @@ export class EnrichmentRelay extends WorkerHost {
     // SELECT FOR UPDATE SKIP LOCKED — prevents double-processing by concurrent workers
     const rows = await outboxRepo
       .createQueryBuilder('o')
-      .setLock('pessimistic_write_or_fail')
+      .setLock('pessimistic_partial_write')
       .where('o.processed_at IS NULL')
       .limit(50)
       .getMany();

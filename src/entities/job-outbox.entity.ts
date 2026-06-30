@@ -10,7 +10,9 @@ import {
 import { Job } from './job.entity';
 
 @Entity('job_outbox')
-@Index('idx_job_outbox_unprocessed', ['processedAt'], { where: '"processed_at" IS NULL' })
+@Index('idx_job_outbox_unprocessed', ['processedAt'], {
+  where: '"processed_at" IS NULL',
+})
 export class JobOutbox {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
