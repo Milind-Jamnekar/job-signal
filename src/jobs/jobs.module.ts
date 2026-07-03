@@ -5,6 +5,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { Job } from '../entities/job.entity';
 import { EXPORT_QUEUE, ExportService } from './export.service';
+import { ExportWorker } from './export.worker';
 import { JobsController } from './jobs.controller';
 import { JobsService } from './jobs.service';
 
@@ -15,7 +16,7 @@ import { JobsService } from './jobs.service';
     BullBoardModule.forFeature({ name: EXPORT_QUEUE, adapter: BullMQAdapter }),
   ],
   controllers: [JobsController],
-  providers: [JobsService, ExportService],
+  providers: [JobsService, ExportService, ExportWorker],
   exports: [JobsService],
 })
 export class JobsModule {}
