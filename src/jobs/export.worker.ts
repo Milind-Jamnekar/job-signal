@@ -58,8 +58,10 @@ export class ExportWorker extends WorkerHost {
     const jobId = String(job.id);
     const bucket = this.config.get<string>('S3_EXPORT_BUCKET') ?? 'job-exports';
     const key = `exports/jobs-${jobId}-${Date.now()}.xlsx`;
-    this.logger.assign({ export_job_id: jobId, user_id: job.data.userId, key });
-    this.logger.info('Starting export');
+    // NB: logger.assign() only works in HTTP request scope; a BullMQ worker runs
+    // outside it, so attach context to each log call directly instead.
+    const logCtx = { export_job_id: jobId, user_id: job.data.userId, key };
+    this.logger.info(logCtx, 'Starting export');
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -120,7 +122,7 @@ export class ExportWorker extends WorkerHost {
 
     try {
       const rows = await Promise.race([work, timeout]);
-      this.logger.info({ rows }, 'Export uploaded');
+      this.logger.info({ ...logCtx, rows }, 'Export uploaded');
     } catch (err) {
       await upload.abort().catch(() => undefined);
       throw err;
@@ -140,6 +142,6 @@ export class ExportWorker extends WorkerHost {
       'EX',
       RESULT_TTL_SECONDS,
     );
-    this.logger.info('Export result stored');
+    this.logger.info(logCtx, 'Export result stored');
   }
 }
