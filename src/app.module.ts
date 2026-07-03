@@ -19,6 +19,7 @@ import { EnrichmentModule } from './enrichment/enrichment.module';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
+import { S3Module } from './s3/s3.module';
 import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { ScrapingModule } from './scraping/scraping.module';
 
@@ -70,6 +71,7 @@ import { ScrapingModule } from './scraping/scraping.module';
       }),
     }),
     RedisModule,
+    S3Module,
     AuthModule,
     JobsModule,
     SavedSearchesModule,

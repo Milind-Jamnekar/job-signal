@@ -13,4 +13,11 @@ export const envValidationSchema = Joi.object({
   JWT_SECRET: Joi.string().required(),
   TELEGRAM_BOT_TOKEN: Joi.string().optional(),
   TELEGRAM_CHAT_ID: Joi.string().optional(),
+  // S3 / MinIO for streaming exports (Layer 5). Defaults match local MinIO.
+  S3_ENDPOINT: Joi.string().optional(), // e.g. http://localhost:9000 for MinIO; unset for real AWS
+  S3_REGION: Joi.string().default('us-east-1'),
+  S3_EXPORT_BUCKET: Joi.string().default('job-exports'),
+  S3_ACCESS_KEY: Joi.string().default('minioadmin'),
+  S3_SECRET_KEY: Joi.string().default('minioadmin'),
+  S3_FORCE_PATH_STYLE: Joi.boolean().default(true), // path-style required by MinIO
 });

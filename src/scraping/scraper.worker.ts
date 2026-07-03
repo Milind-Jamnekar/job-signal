@@ -41,11 +41,10 @@ export class ScraperWorker extends WorkerHost {
     source: JobSource,
     scrapeJobId: string | undefined,
   ): Promise<void> {
-    this.logger.assign({
-      scrape_job_id: scrapeJobId,
-      source: source.sourceName,
-    });
-    this.logger.info('Starting scrape');
+    // logger.assign() only works in HTTP request scope; a BullMQ worker runs
+    // outside it, so attach context to each log call directly instead.
+    const logCtx = { scrape_job_id: scrapeJobId, source: source.sourceName };
+    this.logger.info(logCtx, 'Starting scrape');
 
     // fetchListings() errors propagate — BullMQ retry + DLQ handle them
     const listings = await source.fetchListings();
@@ -66,11 +65,7 @@ export class ScraperWorker extends WorkerHost {
         isRepost = (await this.redis.exists(repostKey)) === 1;
       } catch (err: unknown) {
         // Redis unavailable — optimistic fallback: assume first-seen
-        this.logger.warn({
-          event: 'redis_unavailable',
-          scrape_job_id: scrapeJobId,
-          err,
-        });
+        this.logger.warn({ ...logCtx, event: 'redis_unavailable', err });
         isRepost = false;
       }
 
@@ -133,7 +128,7 @@ export class ScraperWorker extends WorkerHost {
           .returning('id')
           .execute();
 
-        const jobId = result.raw[0]?.id as string;
+        const jobId = (result.raw as Array<{ id: string }>)[0]?.id;
         await em.insert(JobOutbox, {
           jobId,
           eventType: 'enrich_company',
@@ -153,6 +148,6 @@ export class ScraperWorker extends WorkerHost {
       await this.redis.publish('INVALIDATE_JOBS_CACHE', '1');
     }
 
-    this.logger.info({ accepted, rejected }, 'Scrape done');
+    this.logger.info({ ...logCtx, accepted, rejected }, 'Scrape done');
   }
 }
