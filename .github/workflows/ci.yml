@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    # Service containers so the e2e suite can boot the full AppModule
+    # (TypeORM + Redis/BullMQ). The S3 client is lazy, so MinIO isn't needed here.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: jobsignal
+          POSTGRES_PASSWORD: jobsignal
+          POSTGRES_DB: jobsignal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jobsignal -d jobsignal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://jobsignal:jobsignal@localhost:5432/jobsignal
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-secret
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint src test
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      # dist/ now exists from the Build step, so the image (which COPYs dist/)
+      # builds. Validates the Dockerfile without pushing anywhere.
+      - name: Docker build (validate image)
+        run: docker build -t job-signal:ci .

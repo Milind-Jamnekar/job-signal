@@ -1,6 +1,6 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import IORedis from 'ioredis';
+import IORedis, { Redis } from 'ioredis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
@@ -18,4 +18,12 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
   ],
   exports: [REDIS_CLIENT],
 })
-export class RedisModule {}
+export class RedisModule implements OnModuleDestroy {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+
+  // Quit the shared client on shutdown so TypeORM/BullMQ aren't the only things
+  // released by app.close() — otherwise the socket lingers (Jest open handle).
+  async onModuleDestroy(): Promise<void> {
+    await this.redis.quit();
+  }
+}
