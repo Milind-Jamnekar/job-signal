@@ -1,33 +1,58 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 export interface ExportResult {
   status: 'pending' | 'ready' | 'failed';
   url?: string;
 }
 
+export const EXPORT_QUEUE = 'export';
+
+/** Payload enqueued for the streaming export worker (wired in step 2b). */
+export interface ExportJobData {
+  userId: string;
+}
+
+/** Shape written to Redis under `export:{jobId}` by the worker (step 2b). */
+interface StoredExportResult {
+  url: string;
+}
+
 @Injectable()
 export class ExportService {
-  /**
-   * Enqueues a BullMQ export job and returns its jobId.
-   * Step 2 wires the export queue + producer here.
-   */
-  enqueue(_userId: string): Promise<{ jobId: string }> {
-    return Promise.reject(
-      new NotImplementedException(
-        'Export queue not wired yet (Layer 5, step 2)',
-      ),
+  constructor(
+    @InjectQueue(EXPORT_QUEUE)
+    private readonly exportQueue: Queue<ExportJobData>,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
+
+  async enqueue(userId: string): Promise<{ jobId: string }> {
+    const job = await this.exportQueue.add(
+      'export',
+      { userId },
+      {
+        attempts: 1,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { age: 604800 },
+      },
     );
+    return { jobId: String(job.id) };
   }
 
-  /**
-   * Polls Redis under `export:{jobId}` for the presigned URL.
-   * Step 2 wires the Redis read here.
-   */
-  getResult(_jobId: string): Promise<ExportResult> {
-    return Promise.reject(
-      new NotImplementedException(
-        'Export result lookup not wired yet (Layer 5, step 2)',
-      ),
-    );
+  async getResult(jobId: string): Promise<ExportResult> {
+    const stored = await this.redis.get(`export:${jobId}`);
+    if (stored) {
+      const { url } = JSON.parse(stored) as StoredExportResult;
+      return { status: 'ready', url };
+    }
+
+    const job = await this.exportQueue.getJob(jobId);
+    if (job && (await job.isFailed())) {
+      return { status: 'failed' };
+    }
+    return { status: 'pending' };
   }
 }
