@@ -10,6 +10,10 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   BULL_BOARD_USER: Joi.string().default('admin'),
   BULL_BOARD_PASS: Joi.string().default('admin'),
+  // Grace period on SIGTERM: how long /health/ready reports not-ready before
+  // resources are released, so a load balancer can drain first. 0 = no delay
+  // (dev/test); set to a few seconds in prod behind a proxy.
+  SHUTDOWN_GRACE_MS: Joi.number().default(0),
   JWT_SECRET: Joi.string().required(),
   TELEGRAM_BOT_TOKEN: Joi.string().optional(),
   TELEGRAM_CHAT_ID: Joi.string().optional(),

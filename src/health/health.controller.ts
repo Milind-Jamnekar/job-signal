@@ -4,6 +4,7 @@ import {
   HealthCheckService,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
+import { LifecycleHealthIndicator } from './lifecycle.health';
 import { RedisHealthIndicator } from './redis.health';
 import { S3HealthIndicator } from './s3.health';
 
@@ -14,6 +15,7 @@ export class HealthController {
     private readonly db: TypeOrmHealthIndicator,
     private readonly redis: RedisHealthIndicator,
     private readonly s3: S3HealthIndicator,
+    private readonly lifecycle: LifecycleHealthIndicator,
   ) {}
 
   // Liveness: is the process responsive? No external deps on purpose — a DB or
@@ -31,6 +33,9 @@ export class HealthController {
   @HealthCheck()
   ready() {
     return this.health.check([
+      // Checked first so a shutting-down instance reports not-ready even while
+      // its DB and Redis connections are still up.
+      () => this.lifecycle.isHealthy('shutdown'),
       () => this.db.pingCheck('database', { timeout: 2000 }),
       () => this.redis.isHealthy('redis'),
     ]);
