@@ -1,8 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import {
   makeCounterProvider,
+  makeGaugeProvider,
   PrometheusModule,
 } from '@willsoto/nestjs-prometheus';
+import { QueueMetricsService } from './queue-metrics.service';
 
 // Core value-prop metric: how many listings the freshness filter accepted vs.
 // rejected as zombie/stale, broken down by source. accepted = passed (score >=
@@ -13,6 +15,14 @@ export const jobsScrapedCounterProvider = makeCounterProvider({
   labelNames: ['source', 'outcome'],
 });
 
+// BullMQ queue depth by queue and state (waiting/active/completed/failed/
+// delayed), refreshed on an interval by QueueMetricsService.
+export const bullmqJobsGaugeProvider = makeGaugeProvider({
+  name: 'bullmq_jobs',
+  help: 'BullMQ job counts by queue and state',
+  labelNames: ['queue', 'state'],
+});
+
 @Global()
 @Module({
   imports: [
@@ -21,7 +31,11 @@ export const jobsScrapedCounterProvider = makeCounterProvider({
       defaultMetrics: { enabled: true },
     }),
   ],
-  providers: [jobsScrapedCounterProvider],
+  providers: [
+    jobsScrapedCounterProvider,
+    bullmqJobsGaugeProvider,
+    QueueMetricsService,
+  ],
   exports: [jobsScrapedCounterProvider],
 })
 export class MetricsModule {}

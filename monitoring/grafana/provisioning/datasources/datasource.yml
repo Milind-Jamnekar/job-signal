@@ -8,3 +8,17 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
+
+  - name: Postgres
+    type: postgres
+    uid: postgres
+    access: proxy
+    url: postgres:5432
+    user: jobsignal
+    jsonData:
+      database: jobsignal
+      sslmode: disable
+      postgresVersion: 1500
+    secureJsonData:
+      password: jobsignal
+    editable: true

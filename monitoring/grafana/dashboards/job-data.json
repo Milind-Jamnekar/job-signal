@@ -1,0 +1,150 @@
+{
+  "uid": "job-data",
+  "title": "Job Data",
+  "tags": ["job-signal"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active jobs",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) AS active FROM jobs WHERE status = 'active';"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Tech roles",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) AS tech FROM jobs WHERE status = 'active' AND title ~* 'engineer|developer|backend|full.?stack|software|node|typescript|devops|sre|platform';"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Companies enriched (salary)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) AS enriched FROM companies WHERE salary_p50 IS NOT NULL;"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "With salary range",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) AS with_salary FROM jobs WHERE status = 'active' AND salary_min IS NOT NULL;"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Active jobs by source",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT source, count(*) AS jobs FROM jobs WHERE status = 'active' GROUP BY source ORDER BY jobs DESC;"
+        }
+      ],
+      "options": { "xField": "source", "orientation": "horizontal" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Freshness score distribution",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT freshness_score::text AS score, count(*) AS jobs FROM jobs WHERE status = 'active' GROUP BY freshness_score ORDER BY freshness_score;"
+        }
+      ],
+      "options": { "xField": "score" },
+      "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Jobs scraped over time (by source)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('hour', scraped_at) AS \"time\", source AS metric, count(*) AS value FROM jobs WHERE $__timeFilter(scraped_at) GROUP BY 1, 2 ORDER BY 1;"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Top companies by active listings",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "postgres" },
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT c.name AS company, count(*) AS jobs, max(c.salary_p50) AS salary_p50 FROM jobs j JOIN companies c ON c.id = j.company_id WHERE j.status = 'active' GROUP BY c.name ORDER BY jobs DESC LIMIT 12;"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    }
+  ]
+}
