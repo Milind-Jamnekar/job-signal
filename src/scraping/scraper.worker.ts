@@ -37,8 +37,23 @@ export class ScraperWorker extends WorkerHost {
 
   async process(job: BullJob): Promise<void> {
     const correlationId = getCorrelationId(job);
+    let failures = 0;
     for (const source of this.sources) {
-      await this.scrapeSource(source, correlationId);
+      try {
+        await this.scrapeSource(source, correlationId);
+      } catch (err: unknown) {
+        // Isolate sources: one flaky source must not block the others.
+        failures++;
+        this.logger.error(
+          { correlation_id: correlationId, source: source.sourceName, err },
+          'Source scrape failed; continuing with remaining sources',
+        );
+      }
+    }
+    // Only a total wipeout fails the job (→ BullMQ retry + Bull Board
+    // visibility); any partial success counts as success.
+    if (this.sources.length > 0 && failures === this.sources.length) {
+      throw new Error(`All ${failures} scrape sources failed`);
     }
   }
 
