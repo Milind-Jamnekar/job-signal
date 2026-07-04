@@ -4,18 +4,15 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { LoggerModule } from 'nestjs-pino';
 import basicAuth from 'express-basic-auth';
+import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { envValidationSchema } from './config/env.validation';
-import { Company } from './entities/company.entity';
-import { Job } from './entities/job.entity';
-import { JobOutbox } from './entities/job-outbox.entity';
-import { SavedSearch } from './entities/saved-search.entity';
-import { User } from './entities/user.entity';
 import { AuthModule } from './auth/auth.module';
+import { envValidationSchema } from './config/env.validation';
+import { entities } from './database/entities';
 import { EnrichmentModule } from './enrichment/enrichment.module';
+import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
@@ -43,8 +40,13 @@ import { ScrapingModule } from './scraping/scraping.module';
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
         url: config.get<string>('DATABASE_URL'),
-        entities: [Company, Job, JobOutbox, User, SavedSearch],
-        synchronize: true,
+        entities,
+        migrations: [__dirname + '/database/migrations/*.{ts,js}'],
+        // Schema is owned by migrations, never auto-synced. In prod, apply them
+        // explicitly as a deploy step (npm run migration:run); everywhere else
+        // pending migrations run on boot for a frictionless dev/CI loop.
+        synchronize: false,
+        migrationsRun: config.get<string>('NODE_ENV') !== 'production',
       }),
     }),
     BullModule.forRootAsync({
@@ -78,6 +80,7 @@ import { ScrapingModule } from './scraping/scraping.module';
     ScrapingModule,
     EnrichmentModule,
     NotificationModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
