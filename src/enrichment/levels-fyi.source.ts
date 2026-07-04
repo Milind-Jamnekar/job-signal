@@ -12,12 +12,17 @@ export class LevelsFyiSource {
   private readonly breaker: CircuitBreaker<[string], number | null>;
 
   constructor() {
-    this.breaker = new CircuitBreaker(this.fetchSalary.bind(this), {
-      errorThresholdPercentage: 50,
-      volumeThreshold: 5,
-      resetTimeout: 10_000,
-      timeout: 8_000,
-    });
+    // Arrow (not .bind) so the action keeps its typed signature — .bind widens
+    // it to `any` under @types/opossum, tripping no-unsafe-argument.
+    this.breaker = new CircuitBreaker(
+      (companyName: string) => this.fetchSalary(companyName),
+      {
+        errorThresholdPercentage: 50,
+        volumeThreshold: 5,
+        resetTimeout: 10_000,
+        timeout: 8_000,
+      },
+    );
 
     this.breaker.on('open', () =>
       this.logger.warn({
