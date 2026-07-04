@@ -14,6 +14,7 @@ import { entities } from './database/entities';
 import { EnrichmentModule } from './enrichment/enrichment.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
 import { S3Module } from './s3/s3.module';
@@ -81,6 +82,7 @@ import { ScrapingModule } from './scraping/scraping.module';
     EnrichmentModule,
     NotificationModule,
     HealthModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,10 +1,12 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Job as BullJob, Queue } from 'bullmq';
 import { createHash } from 'crypto';
 import { Redis } from 'ioredis';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Counter } from 'prom-client';
 import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
@@ -26,6 +28,8 @@ export class ScraperWorker extends WorkerHost {
     @Inject('JOB_SOURCES') private readonly sources: JobSource[],
     @InjectDataSource() private readonly dataSource: DataSource,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @InjectMetric('jobs_scraped_total')
+    private readonly scrapedCounter: Counter<string>,
   ) {
     super();
   }
@@ -146,6 +150,19 @@ export class ScraperWorker extends WorkerHost {
 
     if (accepted > 0) {
       await this.redis.publish('INVALIDATE_JOBS_CACHE', '1');
+    }
+
+    if (accepted > 0) {
+      this.scrapedCounter.inc(
+        { source: source.sourceName, outcome: 'accepted' },
+        accepted,
+      );
+    }
+    if (rejected > 0) {
+      this.scrapedCounter.inc(
+        { source: source.sourceName, outcome: 'rejected' },
+        rejected,
+      );
     }
 
     this.logger.info({ ...logCtx, accepted, rejected }, 'Scrape done');
