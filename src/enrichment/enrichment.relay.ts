@@ -1,25 +1,27 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Job as BullJob } from 'bullmq';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
 import { JobOutbox } from '../entities/job-outbox.entity';
+import { getCorrelationId } from '../observability/correlation';
 import { LevelsFyiSource } from './levels-fyi.source';
 
 @Processor('enrich')
 export class EnrichmentRelay extends WorkerHost {
-  private readonly logger = new Logger(EnrichmentRelay.name);
-
   constructor(
+    @InjectPinoLogger(EnrichmentRelay.name)
+    private readonly logger: PinoLogger,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly levelsFyi: LevelsFyiSource,
   ) {
     super();
   }
 
-  async process(_job: BullJob): Promise<void> {
+  async process(job: BullJob): Promise<void> {
+    const logCtx = { correlation_id: getCorrelationId(job) };
     const outboxRepo = this.dataSource.getRepository(JobOutbox);
     const companyRepo = this.dataSource.getRepository(Company);
     const jobRepo = this.dataSource.getRepository(Job);
@@ -34,7 +36,10 @@ export class EnrichmentRelay extends WorkerHost {
 
     if (rows.length === 0) return;
 
-    this.logger.log(`Processing ${rows.length} outbox rows`);
+    this.logger.info(
+      { ...logCtx, rows: rows.length },
+      'Processing outbox rows',
+    );
 
     for (const row of rows) {
       const companyName =
@@ -62,6 +67,6 @@ export class EnrichmentRelay extends WorkerHost {
       await outboxRepo.update(row.id, { processedAt: new Date() });
     }
 
-    this.logger.log(`Enrichment relay done (${rows.length} rows)`);
+    this.logger.info({ ...logCtx, rows: rows.length }, 'Enrichment relay done');
   }
 }

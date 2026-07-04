@@ -31,6 +31,11 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     this.subscriber = new IORedis(
       this.config.get<string>('REDIS_URL') ?? 'redis://localhost:6379',
     );
+    // Without an 'error' listener, ioredis emitting 'error' on a connection blip
+    // would crash the process (unhandled EventEmitter error).
+    this.subscriber.on('error', (err: Error) =>
+      this.logger.warn(`Cache-invalidation subscriber error: ${err.message}`),
+    );
     void this.subscriber.subscribe('INVALIDATE_JOBS_CACHE');
     this.subscriber.on('message', () => {
       void this.invalidateCache();
@@ -48,10 +53,10 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       .join('&');
     const cacheKey = `jobs:list:${createHash('sha256').update(params).digest('hex')}`;
 
-    const cached = await this.redis.get(cacheKey);
+    const cached = await this.safeCacheGet(cacheKey);
     if (cached) {
       this.logger.debug(`Cache hit ${cacheKey}`);
-      return JSON.parse(cached) as { data: Job[]; total: number };
+      return cached;
     }
 
     const { page, limit } = dto;
@@ -63,13 +68,37 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     });
     const result = { data, total };
 
-    await this.redis.set(
-      cacheKey,
-      JSON.stringify(result),
-      'EX',
-      CACHE_TTL_SECONDS,
-    );
+    await this.safeCacheSet(cacheKey, result);
     return result;
+  }
+
+  // Cache is an optimization, not a hard dependency: a Redis outage (or a
+  // corrupt entry) must fall through to Postgres rather than fail GET /jobs.
+  private async safeCacheGet(
+    key: string,
+  ): Promise<{ data: Job[]; total: number } | null> {
+    try {
+      const cached = await this.redis.get(key);
+      return cached
+        ? (JSON.parse(cached) as { data: Job[]; total: number })
+        : null;
+    } catch (err) {
+      this.logger.warn(
+        `Cache read failed, serving from DB: ${(err as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  private async safeCacheSet(
+    key: string,
+    value: { data: Job[]; total: number },
+  ): Promise<void> {
+    try {
+      await this.redis.set(key, JSON.stringify(value), 'EX', CACHE_TTL_SECONDS);
+    } catch (err) {
+      this.logger.warn(`Cache write failed: ${(err as Error).message}`);
+    }
   }
 
   private async invalidateCache(): Promise<void> {

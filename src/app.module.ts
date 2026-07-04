@@ -3,9 +3,13 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import basicAuth from 'express-basic-auth';
 import { LoggerModule } from 'nestjs-pino';
+import { AllExceptionsFilter } from './observability/all-exceptions.filter';
+import { CORRELATION_ID_HEADER } from './observability/correlation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -14,6 +18,7 @@ import { entities } from './database/entities';
 import { EnrichmentModule } from './enrichment/enrichment.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
 import { S3Module } from './s3/s3.module';
@@ -29,6 +34,16 @@ import { ScrapingModule } from './scraping/scraping.module';
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        // Correlate every request: reuse an inbound x-request-id or mint a UUID,
+        // and echo it back so clients — and the BullMQ jobs a request spawns —
+        // can be traced end to end. pino-http logs it as req.id on every line.
+        genReqId: (req, res) => {
+          const incoming = req.headers[CORRELATION_ID_HEADER];
+          const id =
+            (Array.isArray(incoming) ? incoming[0] : incoming) ?? randomUUID();
+          res.setHeader(CORRELATION_ID_HEADER, id);
+          return id;
+        },
         transport:
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty' }
@@ -81,8 +96,14 @@ import { ScrapingModule } from './scraping/scraping.module';
     EnrichmentModule,
     NotificationModule,
     HealthModule,
+    MetricsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global filter: every unhandled error is logged with its correlation id
+    // and returned in a consistent shape (no internal leakage on 500s).
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+  ],
 })
 export class AppModule {}

@@ -19,14 +19,19 @@ export class TelegramService {
     }
 
     const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: this.chatId, text: message }),
-    });
-
-    if (!res.ok) {
-      this.logger.warn(`Telegram send failed: ${res.status}`);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: this.chatId, text: message }),
+      });
+      if (!res.ok) {
+        this.logger.warn(`Telegram send failed: ${res.status}`);
+      }
+    } catch (err) {
+      // Swallow network errors: one failed alert must not fail (and retry) the
+      // whole notification batch, which would re-send already-delivered alerts.
+      this.logger.warn(`Telegram send error: ${(err as Error).message}`);
     }
   }
 }
