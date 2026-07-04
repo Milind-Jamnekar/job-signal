@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import IORedis, { Redis } from 'ioredis';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { Job } from '../entities/job.entity';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { ListJobsDto } from './dto/list-jobs.dto';
@@ -59,13 +59,31 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       return cached;
     }
 
-    const { page, limit } = dto;
-    const [data, total] = await this.jobRepo.findAndCount({
-      where: { status: 'active' },
-      order: { freshnessScore: 'DESC', scrapedAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const { page, limit, keywords } = dto;
+    const qb = this.jobRepo
+      .createQueryBuilder('job')
+      .where('job.status = :status', { status: 'active' });
+
+    // A job matches if ANY keyword appears in its title or description.
+    if (keywords && keywords.length > 0) {
+      qb.andWhere(
+        new Brackets((w) => {
+          keywords.forEach((kw, i) => {
+            w.orWhere(
+              `(job.title ILIKE :kw${i} OR job.description ILIKE :kw${i})`,
+              { [`kw${i}`]: `%${kw}%` },
+            );
+          });
+        }),
+      );
+    }
+
+    const [data, total] = await qb
+      .orderBy('job.freshnessScore', 'DESC')
+      .addOrderBy('job.scrapedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
     const result = { data, total };
 
     await this.safeCacheSet(cacheKey, result);

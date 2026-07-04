@@ -14,7 +14,16 @@ describe('JobsService.findAll', () => {
   afterAll(() => jest.restoreAllMocks());
 
   let service: JobsService;
-  let jobRepo: { findAndCount: jest.Mock };
+  let qb: {
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    orderBy: jest.Mock;
+    addOrderBy: jest.Mock;
+    skip: jest.Mock;
+    take: jest.Mock;
+    getManyAndCount: jest.Mock;
+  };
+  let jobRepo: { createQueryBuilder: jest.Mock };
   let redis: { get: jest.Mock; set: jest.Mock };
 
   const dto: ListJobsDto = { page: 1, limit: 20 };
@@ -22,7 +31,16 @@ describe('JobsService.findAll', () => {
   const dbResult: [Job[], number] = [[job], 1];
 
   beforeEach(() => {
-    jobRepo = { findAndCount: jest.fn().mockResolvedValue(dbResult) };
+    qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue(dbResult),
+    };
+    jobRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
     redis = { get: jest.fn(), set: jest.fn().mockResolvedValue('OK') };
     service = new JobsService(
       jobRepo as unknown as Repository<Job>,
@@ -37,7 +55,7 @@ describe('JobsService.findAll', () => {
     const result = await service.findAll(dto);
 
     expect(result).toEqual({ data: [], total: 7 });
-    expect(jobRepo.findAndCount).not.toHaveBeenCalled();
+    expect(qb.getManyAndCount).not.toHaveBeenCalled();
   });
 
   it('queries the DB and populates the cache on a cache miss', async () => {
@@ -46,8 +64,29 @@ describe('JobsService.findAll', () => {
     const result = await service.findAll(dto);
 
     expect(result).toEqual({ data: dbResult[0], total: 1 });
-    expect(jobRepo.findAndCount).toHaveBeenCalledTimes(1);
+    expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
     expect(redis.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds a keyword filter across title and description when keywords are given', async () => {
+    redis.get.mockResolvedValue(null);
+
+    await service.findAll({
+      page: 1,
+      limit: 20,
+      keywords: ['backend', 'node'],
+    });
+
+    // One Brackets clause added for the keyword group.
+    expect(qb.andWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not add a keyword filter when none are given', async () => {
+    redis.get.mockResolvedValue(null);
+
+    await service.findAll(dto);
+
+    expect(qb.andWhere).not.toHaveBeenCalled();
   });
 
   it('falls back to the DB when the cache read throws (Redis outage)', async () => {
@@ -56,7 +95,7 @@ describe('JobsService.findAll', () => {
     const result = await service.findAll(dto);
 
     expect(result).toEqual({ data: dbResult[0], total: 1 });
-    expect(jobRepo.findAndCount).toHaveBeenCalledTimes(1);
+    expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
   });
 
   it('still returns the DB result when the cache write throws', async () => {
@@ -74,6 +113,6 @@ describe('JobsService.findAll', () => {
     const result = await service.findAll(dto);
 
     expect(result).toEqual({ data: dbResult[0], total: 1 });
-    expect(jobRepo.findAndCount).toHaveBeenCalledTimes(1);
+    expect(qb.getManyAndCount).toHaveBeenCalledTimes(1);
   });
 });
