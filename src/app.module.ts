@@ -3,10 +3,12 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import basicAuth from 'express-basic-auth';
 import { LoggerModule } from 'nestjs-pino';
+import { AllExceptionsFilter } from './observability/all-exceptions.filter';
 import { CORRELATION_ID_HEADER } from './observability/correlation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -97,6 +99,11 @@ import { ScrapingModule } from './scraping/scraping.module';
     MetricsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global filter: every unhandled error is logged with its correlation id
+    // and returned in a consistent shape (no internal leakage on 500s).
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+  ],
 })
 export class AppModule {}
