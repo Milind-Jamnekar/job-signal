@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: job-signal
+    metrics_path: /metrics
+    static_configs:
+      # App runs on the host (node dist/main). Change to app:3000 if you run
+      # the app via the docker-compose `app` service instead.
+      - targets: ["host.docker.internal:3000"]

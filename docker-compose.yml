@@ -66,6 +66,41 @@ services:
       minio-init:
         condition: service_completed_successfully
 
+  # Scrapes the app's /metrics endpoint. The app usually runs on the host
+  # (node dist/main), so the target is host.docker.internal:3000 (Docker
+  # Desktop). If you run the app via the `app` service instead, change the
+  # target in monitoring/prometheus.yml to app:3000.
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000" # app owns 3000; Grafana on 3001
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # Anonymous access so localhost:3001 opens straight to the dashboard.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   minio_data:
+  prometheus_data:
+  grafana_data:
