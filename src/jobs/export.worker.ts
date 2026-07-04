@@ -11,6 +11,7 @@ import { Redis } from 'ioredis';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PassThrough, Readable } from 'stream';
 import { DataSource } from 'typeorm';
+import { getCorrelationId } from '../observability/correlation';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { S3_CLIENT } from '../s3/s3.module';
 import { EXPORT_QUEUE, ExportJobData } from './export.service';
@@ -60,7 +61,12 @@ export class ExportWorker extends WorkerHost {
     const key = `exports/jobs-${jobId}-${Date.now()}.xlsx`;
     // NB: logger.assign() only works in HTTP request scope; a BullMQ worker runs
     // outside it, so attach context to each log call directly instead.
-    const logCtx = { export_job_id: jobId, user_id: job.data.userId, key };
+    const logCtx = {
+      correlation_id: getCorrelationId(job),
+      export_job_id: jobId,
+      user_id: job.data.userId,
+      key,
+    };
     this.logger.info(logCtx, 'Starting export');
 
     const queryRunner = this.dataSource.createQueryRunner();

@@ -11,6 +11,7 @@ import { DataSource } from 'typeorm';
 import { Company } from '../entities/company.entity';
 import { Job } from '../entities/job.entity';
 import { JobOutbox } from '../entities/job-outbox.entity';
+import { getCorrelationId } from '../observability/correlation';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { FreshnessScorer } from './freshness-scorer';
 import { JobSource } from './job-source.interface';
@@ -35,19 +36,19 @@ export class ScraperWorker extends WorkerHost {
   }
 
   async process(job: BullJob): Promise<void> {
-    const scrapeJobId = job.id;
+    const correlationId = getCorrelationId(job);
     for (const source of this.sources) {
-      await this.scrapeSource(source, scrapeJobId);
+      await this.scrapeSource(source, correlationId);
     }
   }
 
   private async scrapeSource(
     source: JobSource,
-    scrapeJobId: string | undefined,
+    correlationId: string,
   ): Promise<void> {
     // logger.assign() only works in HTTP request scope; a BullMQ worker runs
     // outside it, so attach context to each log call directly instead.
-    const logCtx = { scrape_job_id: scrapeJobId, source: source.sourceName };
+    const logCtx = { correlation_id: correlationId, source: source.sourceName };
     this.logger.info(logCtx, 'Starting scrape');
 
     // fetchListings() errors propagate — BullMQ retry + DLQ handle them

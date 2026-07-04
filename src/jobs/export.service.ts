@@ -14,6 +14,8 @@ export const EXPORT_QUEUE = 'export';
 /** Payload enqueued for the streaming export worker (wired in step 2b). */
 export interface ExportJobData {
   userId: string;
+  // Request id of the HTTP call that triggered the export, for log correlation.
+  correlationId?: string;
 }
 
 /** Shape written to Redis under `export:{jobId}` by the worker (step 2b). */
@@ -29,10 +31,13 @@ export class ExportService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async enqueue(userId: string): Promise<{ jobId: string }> {
+  async enqueue(
+    userId: string,
+    correlationId?: string,
+  ): Promise<{ jobId: string }> {
     const job = await this.exportQueue.add(
       'export',
-      { userId },
+      { userId, correlationId },
       {
         attempts: 1,
         removeOnComplete: { count: 100 },

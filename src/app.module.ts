@@ -4,8 +4,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import basicAuth from 'express-basic-auth';
 import { LoggerModule } from 'nestjs-pino';
+import { CORRELATION_ID_HEADER } from './observability/correlation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -30,6 +32,16 @@ import { ScrapingModule } from './scraping/scraping.module';
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        // Correlate every request: reuse an inbound x-request-id or mint a UUID,
+        // and echo it back so clients — and the BullMQ jobs a request spawns —
+        // can be traced end to end. pino-http logs it as req.id on every line.
+        genReqId: (req, res) => {
+          const incoming = req.headers[CORRELATION_ID_HEADER];
+          const id =
+            (Array.isArray(incoming) ? incoming[0] : incoming) ?? randomUUID();
+          res.setHeader(CORRELATION_ID_HEADER, id);
+          return id;
+        },
         transport:
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty' }

@@ -37,7 +37,11 @@ export class JobsController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   export(@Request() req: AuthRequest) {
-    return this.exportService.enqueue(req.user.sub);
+    // req.id is set by pino-http (genReqId); carry it into the job so the export
+    // worker's logs share the same correlation id as this request.
+    const rid = (req as { id?: string | number }).id;
+    const correlationId = rid === undefined ? undefined : String(rid);
+    return this.exportService.enqueue(req.user.sub, correlationId);
   }
 
   @Get('export/:jobId')

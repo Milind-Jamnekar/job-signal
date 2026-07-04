@@ -1,24 +1,26 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Job as BullJob } from 'bullmq';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { DataSource, MoreThan } from 'typeorm';
 import { Job } from '../entities/job.entity';
+import { getCorrelationId } from '../observability/correlation';
 import { SavedSearch } from '../entities/saved-search.entity';
 import { TelegramService } from './telegram.service';
 
 @Processor('notify')
 export class NotificationWorker extends WorkerHost {
-  private readonly logger = new Logger(NotificationWorker.name);
-
   constructor(
+    @InjectPinoLogger(NotificationWorker.name)
+    private readonly logger: PinoLogger,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly telegram: TelegramService,
   ) {
     super();
   }
 
-  async process(_job: BullJob): Promise<void> {
+  async process(job: BullJob): Promise<void> {
+    const logCtx = { correlation_id: getCorrelationId(job) };
     const since = new Date(Date.now() - 60 * 60 * 1000); // last hour
 
     const jobs = await this.dataSource.getRepository(Job).find({
@@ -49,7 +51,7 @@ export class NotificationWorker extends WorkerHost {
       }
     }
 
-    this.logger.log(`Notifications sent: ${sent}`);
+    this.logger.info({ ...logCtx, sent }, 'Notifications sent');
   }
 
   private matches(job: Job, search: SavedSearch): boolean {
