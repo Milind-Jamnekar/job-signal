@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { HealthCheckResult } from '@nestjs/terminus';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -27,5 +28,27 @@ describe('AppController (e2e)', () => {
       .get('/')
       .expect(200)
       .expect('Hello World!');
+  });
+
+  it('/health/live (GET) is up with no external deps', () => {
+    return request(app.getHttpServer())
+      .get('/health/live')
+      .expect(200)
+      .expect((res) => {
+        const body = res.body as HealthCheckResult;
+        expect(body.status).toBe('ok');
+      });
+  });
+
+  it('/health/ready (GET) reports database and redis up', () => {
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(200)
+      .expect((res) => {
+        const body = res.body as HealthCheckResult;
+        expect(body.status).toBe('ok');
+        expect(body.info?.database?.status).toBe('up');
+        expect(body.info?.redis?.status).toBe('up');
+      });
   });
 });

@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { envValidationSchema } from './config/env.validation';
 import { entities } from './database/entities';
 import { EnrichmentModule } from './enrichment/enrichment.module';
+import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificationModule } from './notifications/notification.module';
 import { RedisModule } from './redis/redis.module';
@@ -79,6 +80,7 @@ import { ScrapingModule } from './scraping/scraping.module';
     ScrapingModule,
     EnrichmentModule,
     NotificationModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
